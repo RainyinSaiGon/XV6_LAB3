@@ -123,3 +123,40 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_pgaccess(void)
+{
+  uint64 addr;        // địa chỉ ảo bắt đầu
+  int numpages;       // số trang
+  uint64 user_mask;   // user-space buffer để ghi kết quả
+
+  if (argaddr(0, &addr) < 0)
+    return -1;
+  if (argint(1, &numpages) < 0)
+    return -1;
+  if (argaddr(2, &user_mask) < 0)
+    return -1;
+
+  if (numpages > 64) // giới hạn tối đa 64 pages (tương ứng 64 bit)
+    return -1;
+
+  struct proc *p = myproc();
+  uint64 mask = 0;
+
+  for (int i = 0; i < numpages; i++) {
+    pte_t *pte = walk(p->pagetable, addr + i * PGSIZE, 0);
+    if (pte == 0)
+      continue;
+    if (*pte & PTE_A) {
+      mask |= (1L << i);       // đánh dấu bit tương ứng
+      *pte &= ~PTE_A;          // xóa bit PTE_A sau khi đọc
+    }
+  }
+
+  // Copy bitmask về userspace
+  if (copyout(p->pagetable, user_mask, (char *)&mask, sizeof(mask)) < 0)
+    return -1;
+
+  return 0;
+}

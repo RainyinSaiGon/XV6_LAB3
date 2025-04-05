@@ -488,10 +488,37 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
 
 
 #ifdef LAB_PGTBL
-void
-vmprint(pagetable_t pagetable) {
-  // your code here
+
+void vmprint_recursive(pagetable_t pagetable, int level) {
+  for (int i = 0; i < 512; i++) {
+    pte_t pte = pagetable[i];
+    if (pte & PTE_V) {
+      uint64 pa = PTE2PA(pte);
+
+      // Indentation theo cấp
+      for (int j = 2; j > level; j--)
+        printf(" ..");
+
+      // In chỉ mục, pte, và địa chỉ vật lý (PA)
+      printf(" ..%d: pte 0x%016lx pa 0x%016lx\n", i, pte, pa);
+
+      // Nếu không phải leaf → đệ quy
+      if ((pte & (PTE_R | PTE_W | PTE_X)) == 0) {
+        vmprint_recursive((pagetable_t)pa, level - 1);
+      }
+    }
+  }
 }
+
+void vmprint(pagetable_t pagetable) {
+  printf("page table %p\n", pagetable);
+  vmprint_recursive(pagetable, 2);
+}
+
+
+
+
+
 #endif
 
 
